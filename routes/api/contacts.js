@@ -1,21 +1,28 @@
 const express = require("express");
-
 const router = express.Router();
 const {
-  validation,
+  joiValidation,
   validationFavorite,
-} = require("../../validation/validation");
+  authValidation,
+  ctrlWrapper,
+} = require("../../middleWares");
+
 const controllers = require("../../controllers/controllers");
 
-router.get("/", controllers.getContacts);
+router.get("/", authValidation, ctrlWrapper(controllers.getContacts));
 
-router.get("/:contactId", controllers.getContact);
+router.get("/:contactId", ctrlWrapper(controllers.getContact));
 
-router.post("/", validation, controllers.postContact);
+router.post(
+  "/",
+  authValidation,
+  joiValidation,
+  ctrlWrapper(controllers.postContact)
+);
 
-router.delete("/:contactId", controllers.deleteContact);
+router.delete("/:contactId", ctrlWrapper(controllers.deleteContact));
 
-router.put("/:contactId", validation, controllers.putContact);
+router.put("/:contactId", joiValidation, ctrlWrapper(controllers.putContact));
 
 router.patch(
   "/:contactId/favorite",
@@ -23,6 +30,4 @@ router.patch(
   controllers.updateStatus
 );
 
-
-
-module.exports = router
+module.exports = router;
