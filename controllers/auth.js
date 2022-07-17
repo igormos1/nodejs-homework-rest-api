@@ -2,6 +2,7 @@ const { SECRET_KEY } = process.env;
 const { User } = require("../modals/user");
 const { Conflict, Unauthorized } = require("http-errors");
 const jwt = require("jsonwebtoken");
+const gravatar = require("gravatar");
 
 const register = async (req, res) => {
   const { name, email, password } = req.body;
@@ -10,7 +11,8 @@ const register = async (req, res) => {
     throw new Conflict(`User with ${email} already exist`);
   }
 
-  const newUser = new User({ name, email });
+  const avatarURL = gravatar.url(email);
+  const newUser = new User({ name, email ,avatarURL});
 
   newUser.setPassword(password);
   newUser.save();
@@ -22,6 +24,7 @@ const register = async (req, res) => {
       user: {
         email,
         name,
+        avatarURL,
       },
     },
   });
@@ -55,8 +58,24 @@ const logout = async (req, res) => {
   res.status(204).json();
 };
 
+const singin = async (req, res) => {
+  const allUser = await User.find({});
+  const logined = allUser.find((item) => item.token !== null);
+  const { token, email, subscription } = logined;
+  res.status(200).json({
+    data: {
+      token,
+      user: {
+        email,
+        subscription,
+      },
+    },
+  });
+};
+
 module.exports = {
   register,
   login,
   logout,
+  singin,
 };
