@@ -3,6 +3,8 @@ const { User } = require("../modals/user");
 const { Conflict, Unauthorized } = require("http-errors");
 const jwt = require("jsonwebtoken");
 const gravatar = require("gravatar");
+const sendMail = require("../helpers/sendEmail");
+const idGenerate = require("bson-objectid");
 
 const register = async (req, res) => {
   const { name, email, password } = req.body;
@@ -12,10 +14,18 @@ const register = async (req, res) => {
   }
 
   const avatarURL = gravatar.url(email);
-  const newUser = new User({ name, email ,avatarURL});
+    const verificationToken = idGenerate();
+  const newUser = new User({ name, email ,avatarURL,verificationToken});
 
   newUser.setPassword(password);
   newUser.save();
+
+  const mail = {
+    to: email,
+    subject: "підтвердження реєстрації",
+    html: `<a target="_blank" href="http://localhost:3000/api/auth/verity/${verificationToken}">Підтвердити</a>`,
+  };
+  sendMail(mail);
 
   res.status(201).json({
     status: "success",
@@ -34,8 +44,8 @@ const login = async (req, res) => {
   const { email, password } = req.body;
   const user = await User.findOne({ email });
   console.log(user.comparePassword(password));
-  if (!user || !user.comparePassword(password)) {
-    throw new Unauthorized(`Email or password is wrong`);
+ if (!user || !user.comparePassword(password) || !user.verify) {
+    throw new Unauthorized(`Email or password or not verity is wrong`);
   }
 
   const payload = {
@@ -73,9 +83,49 @@ const singin = async (req, res) => {
   });
 };
 
+const verifyEmail = async (req, res) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({ verificationToken });
+  if (!user) {
+    throw new Error();
+  }
+  await User.findByIdAndUpdate(user._id, {
+    verificationToken: "",
+    verify: true,
+  });
+  res.json({
+    message: "verification successful",
+  });
+};
+
+const resendVerifyEmail = async (req, res) => {
+  const { email } = req.body;
+  const user = await User.findOne({ email });
+  if (!user) {
+    res.status(400).json({ message: "not found" });
+  }
+  if (user.verify) {
+    res.status(400).json({
+      message: "Verification has already been passed",
+    });
+  }
+  const mail = {
+    to: email,
+    subject: "підтвердження реєстрації",
+    html: `<a target="_blank" href="http://localhost:3000/api/auth/verity/${user.verificationToken}">Підтвердити</a>`,
+  };
+  sendMail(mail);
+  res.json({
+    message: "Verification email sent",
+  });
+};
+
+
 module.exports = {
   register,
   login,
   logout,
   singin,
+   verifyEmail,
+  resendVerifyEmail,
 };
